@@ -13,6 +13,8 @@ contract SwanAssetFactory {
         returns (SwanAsset)
     {
         return new SwanAsset(_name, _symbol, _description, _owner, msg.sender);
+        //q- Why is _owner passed in but the operator has to be msg.sender, seems like it should be flipped. So we can make anyone
+        //the owner of our swanAsset?
     }
 }
 
