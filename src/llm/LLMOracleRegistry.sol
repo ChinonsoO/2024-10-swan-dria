@@ -91,6 +91,8 @@ contract LLMOracleRegistry is OwnableUpgradeable, UUPSUpgradeable {
     /// @notice Register an Oracle.
     /// @dev Reverts if the user is already registered or has insufficient funds.
     /// @param kind The kind of Oracle to unregister.
+
+    //q- So anyone can register an oracle?
     function register(LLMOracleKind kind) public {
         uint256 amount = getStakeAmount(kind);
 
@@ -127,7 +129,7 @@ contract LLMOracleRegistry is OwnableUpgradeable, UUPSUpgradeable {
         emit Unregistered(msg.sender, kind);
 
         // approve its stake back
-        token.approve(msg.sender, token.allowance(address(this), msg.sender) + amount);
+        token.approve(msg.sender, token.allowance(address(this), msg.sender) + amount); //q- Why are we approving its stake back?
     }
 
     /// @notice Set the stake amount required to register as an Oracle.

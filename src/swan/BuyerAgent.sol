@@ -16,6 +16,7 @@ contract BuyerAgentFactory {
         uint256 _amountPerRound,
         address _owner
     ) external returns (BuyerAgent) {
+                                                                                //Swan       //User
         return new BuyerAgent(_name, _description, _royaltyFee, _amountPerRound, msg.sender, _owner);
     }
 }
@@ -122,8 +123,8 @@ contract BuyerAgent is Ownable {
         string memory _description,
         uint96 _royaltyFee,
         uint256 _amountPerRound, //q- Is this our budget per round
-        address _operator,
-        address _owner
+        address _operator, //Swan
+        address _owner //User
     ) Ownable(_owner) {
         if (_royaltyFee < 1 || _royaltyFee > 100) {
             revert InvalidFee(_royaltyFee);
@@ -178,6 +179,8 @@ contract BuyerAgent is Ownable {
         // check that we are in the Withdraw phase, and return round
         (uint256 round,) = _checkRoundPhase(Phase.Withdraw);
 
+        //q- Can an attacker potentially watch the mempool for this transaction then immediately start computing the valid nonce
+        //Allow for the attacker to instantly validate.
         oracleStateRequests[round] =
             swan.coordinator().request(SwanBuyerStateOracleProtocol, _input, _models, swan.getOracleParameters());
     }
@@ -200,7 +203,7 @@ contract BuyerAgent is Ownable {
     /// @notice Function to update the Buyer state.
     /// @dev Works only in `Withdraw` phase.
     /// @dev Can be called multiple times within a single round, although is not expected to be done so.
-    //@good
+    /// @good
     function updateState() external onlyAuthorized {
         // check that we are in the Withdraw phase, and return round
         (uint256 round,) = _checkRoundPhase(Phase.Withdraw);
@@ -224,7 +227,6 @@ contract BuyerAgent is Ownable {
     /// @dev Can be called multiple times within a single round, although is not expected to be done so.
     /// @dev This is not expected to revert if the oracle works correctly.
 
-    /// BUISNESS LOGIC - GOOD
     function purchase() external onlyAuthorized {
         // check that we are in the Buy phase, and return round
         (uint256 round,) = _checkRoundPhase(Phase.Buy);
@@ -265,6 +267,8 @@ contract BuyerAgent is Ownable {
     /// @param _amount amount to withdraw.
     /// @dev If the current phase is `Withdraw` buyer can withdraw any amount of tokens.
     /// @dev If the current phase is not `Withdraw` buyer has to leave at least `minFundAmount` in the contract.
+
+    //q- Our README doesn't say if withdraw should be callable by operator as well
     function withdraw(uint96 _amount) public onlyAuthorized {
         (, Phase phase,) = getRoundPhase();
 

@@ -147,12 +147,18 @@ contract LLMOracleCoordinator is LLMOracleTask, LLMOracleManager, UUPSUpgradeabl
     /// @param input The input data for the LLM generation.
     /// @param parameters The task parameters
     /// @return task id
+
+    //@audit- We don't have time limits for our task. So a task could be left out indefinitely?
+    //q- - Vulnerable to griefing, somone can call this will arbitray inputs? a- Maybe not we charge a fee for each request.
     function request(
         bytes32 protocol,
         bytes memory input,
         bytes memory models,
         LLMOracleTaskParameters calldata parameters
     ) public onlyValidParameters(parameters) returns (uint256) {
+        
+        //@audit- protocol should be validated to prevent generatorions for other protocols
+
         (uint256 totalfee, uint256 generatorFee, uint256 validatorFee) = getFee(parameters);
 
         // check allowance requirements
@@ -204,6 +210,7 @@ contract LLMOracleCoordinator is LLMOracleTask, LLMOracleManager, UUPSUpgradeabl
     /// @param nonce The proof-of-work nonce.
     /// @param output The output data for the LLM generation.
     /// @param metadata Optional metadata for this output.
+
     function respond(uint256 taskId, uint256 nonce, bytes calldata output, bytes calldata metadata)
         public
         onlyRegistered(LLMOracleKind.Generator)
@@ -212,6 +219,8 @@ contract LLMOracleCoordinator is LLMOracleTask, LLMOracleManager, UUPSUpgradeabl
         TaskRequest storage task = requests[taskId];
 
         // ensure responder to be unique for this task
+
+        //If there is a repeating responder to this taskID revert.
         for (uint256 i = 0; i < responses[taskId].length; i++) {
             if (responses[taskId][i].responder == msg.sender) {
                 revert AlreadyResponded(taskId, msg.sender);
@@ -284,6 +293,10 @@ contract LLMOracleCoordinator is LLMOracleTask, LLMOracleManager, UUPSUpgradeabl
         }
 
         // check nonce (proof-of-work)
+        //@audit- The input of the POW is deterministic, once a task is created nonce's can be calculated before hand then submitted to this function.
+        //This can be done with multiple addresses. This 
+
+
         assertValidNonce(taskId, task, nonce);
 
         // update validation scores
@@ -308,7 +321,7 @@ contract LLMOracleCoordinator is LLMOracleTask, LLMOracleManager, UUPSUpgradeabl
     /// @notice Checks that proof-of-work is valid for a given task with taskId and nonce.
     /// @dev Reverts if the nonce is not a valid proof-of-work.
     /// @param taskId The ID of the task to check proof-of-work.
-    /// @param task The task (in storage) to validate.
+    /// @param task The task (in storage) to validate.  
     /// @param nonce The candidate proof-of-work nonce.
     function assertValidNonce(uint256 taskId, TaskRequest storage task, uint256 nonce) internal view {
         bytes memory message = abi.encodePacked(taskId, task.input, task.requester, msg.sender, nonce);

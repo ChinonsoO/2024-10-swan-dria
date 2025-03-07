@@ -53,7 +53,8 @@ contract LLMOracleManager is OwnableUpgradeable {
 
         validationDeviationFactor = 2;
         generationDeviationFactor = 1;
-
+        
+        //q- No check for if fees are above 100?
         setFees(_platformFee, _generationFee, _validationFee);
     }
 
@@ -117,12 +118,14 @@ contract LLMOracleManager is OwnableUpgradeable {
         validatorFee = diff * validationFee;
         totalFee =
             platformFee + (parameters.numGenerations * (generatorFee + (parameters.numValidations * validatorFee)));
+                            //For each generation, one generatorFee + validator fees for each generation.
     }
 
     /// @notice Update Oracle parameters bounds.
     /// @dev Provide the same value to keep it unchanged.
     /// @param minimums The new minimum parameters.
     /// @param maximums The new maximum parameters.
+
     function setParameters(LLMOracleTaskParameters calldata minimums, LLMOracleTaskParameters calldata maximums)
         public
         onlyOwner

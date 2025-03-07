@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+//Swan.sol
 pragma solidity ^0.8.20;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -199,7 +200,6 @@ contract Swan is SwanManager, UUPSUpgradeable {
     /// @param  _buyer new buyerAgent for the asset.
     /// @param  _price new price of the token.
 
-    //q- Can we pass in a poisoned asset address here?
     function relist(address _asset, address _buyer, uint256 _price) external {
         AssetListing storage asset = listings[_asset];
 
@@ -248,7 +248,7 @@ contract Swan is SwanManager, UUPSUpgradeable {
             royaltyFee: buyer.royaltyFee(),
             price: _price,
             seller: msg.sender,
-            status: AssetStatus.Listed, //@audit- A SOLD ASSET IS NOW MARKED AS LISTED
+            status: AssetStatus.Listed,
             buyer: _buyer,
             round: round
         });
@@ -338,6 +338,7 @@ contract Swan is SwanManager, UUPSUpgradeable {
         uint96 _feeRoyalty,
         uint256 _amountPerRound
     ) external returns (BuyerAgent) {
+                                                                                                       //User--> Owner 
         BuyerAgent agent = buyerAgentFactory.deploy(_name, _description, _feeRoyalty, _amountPerRound, msg.sender);
         emit BuyerCreated(msg.sender, address(agent));
 
