@@ -121,7 +121,7 @@ contract BuyerAgent is Ownable {
         string memory _name,
         string memory _description,
         uint96 _royaltyFee,
-        uint256 _amountPerRound,
+        uint256 _amountPerRound, //q- Is this our budget per round
         address _operator,
         address _owner
     ) Ownable(_owner) {
@@ -130,12 +130,13 @@ contract BuyerAgent is Ownable {
         }
         royaltyFee = _royaltyFee;
 
-        swan = Swan(_operator);
+        swan = Swan(_operator); //e- Buyer agents are operated by swans
         amountPerRound = _amountPerRound;
         name = _name;
         description = _description;
         createdAt = block.timestamp;
-        marketParameterIdx = swan.getMarketParameters().length - 1;
+        marketParameterIdx = swan.getMarketParameters().length - 1; //The index of the market parameters that we active when
+        //this agent was created
 
         // approve the coordinator to take fees
         // a max approval results in infinite allowance
@@ -155,6 +156,8 @@ contract BuyerAgent is Ownable {
 
     /// @notice Reads the best performing result for a given task id, and parses it as an array of addresses.
     /// @param taskId task id to be read
+
+    //q- What is a task ID?
     function oracleResult(uint256 taskId) public view returns (bytes memory) {
         // task id must be non-zero
         if (taskId == 0) {
@@ -197,6 +200,7 @@ contract BuyerAgent is Ownable {
     /// @notice Function to update the Buyer state.
     /// @dev Works only in `Withdraw` phase.
     /// @dev Can be called multiple times within a single round, although is not expected to be done so.
+    /// @good
     function updateState() external onlyAuthorized {
         // check that we are in the Withdraw phase, and return round
         (uint256 round,) = _checkRoundPhase(Phase.Withdraw);
@@ -219,6 +223,8 @@ contract BuyerAgent is Ownable {
     /// @dev Works only in `Buy` phase.
     /// @dev Can be called multiple times within a single round, although is not expected to be done so.
     /// @dev This is not expected to revert if the oracle works correctly.
+
+    /// BUISNESS LOGIC - GOOD
     function purchase() external onlyAuthorized {
         // check that we are in the Buy phase, and return round
         (uint256 round,) = _checkRoundPhase(Phase.Buy);
@@ -231,7 +237,7 @@ contract BuyerAgent is Ownable {
 
         // read oracle result using the latest task id for this round
         bytes memory output = oracleResult(taskId);
-        address[] memory assets = abi.decode(output, (address[]));
+        address[] memory assets = abi.decode(output, (address[])); //q- why are we abi.decoding?
 
         // we purchase each asset returned
         for (uint256 i = 0; i < assets.length; i++) {
@@ -248,7 +254,7 @@ contract BuyerAgent is Ownable {
             inventory[round].push(asset);
 
             // make the actual purchase
-            swan.purchase(asset);
+            swan.purchase(asset); //q- Woah reentrancy maybe? Purchase in for loop
         }
 
         // update taskId as completed
@@ -305,21 +311,24 @@ contract BuyerAgent is Ownable {
     /// @param params Market parameters of the Swan.
     /// @param elapsedTime Time elapsed that computed in 'getRoundPhase()' according to the timestamps of each round.
     /// @return round, phase, time until next phase
+
+    //@good- Note calculation of round will alwys revert if all intervals are zero
     function _computePhase(SwanMarketParameters memory params, uint256 elapsedTime)
         internal
         pure
         returns (uint256, Phase, uint256)
     {
-        uint256 cycleTime = _computeCycleTime(params);
-        uint256 round = elapsedTime / cycleTime;
-        uint256 roundTime = elapsedTime % cycleTime;
+        uint256 cycleTime = _computeCycleTime(params); //e- Sum of all our intervals, ie one round
+        uint256 round = elapsedTime / cycleTime; //e- # of rounds
+        uint256 roundTime = elapsedTime % cycleTime; //e- How much time left in the current round
 
         // example:
         // |------------->             | (roundTime)
         // |--Sell--|--Buy--|-Withdraw-| (cycleTime)
+        //e- Trying to figure out which phase here, The assumption is rounds are in order of sell -> buy -> withdraw
         if (roundTime <= params.sellInterval) {
             return (round, Phase.Sell, params.sellInterval - roundTime);
-        } else if (roundTime <= params.sellInterval + params.buyInterval) {
+        } else if (roundTime <= params.sellInterval + params.buyInterval) { //This equality seems odd, I wound do < roundTime < //Checked it we're good
             return (round, Phase.Buy, params.sellInterval + params.buyInterval - roundTime);
         } else {
             return (round, Phase.Withdraw, cycleTime - roundTime);
@@ -331,11 +340,13 @@ contract BuyerAgent is Ownable {
     /// @dev Internally, it computes the intervals from market parameters at the creation of this agent, until now.
     /// @dev If there are many parameter changes throughout the life of this agent, this may cost more GAS.
     /// @return round, phase, time until next phase
+
+    //@good
     function getRoundPhase() public view returns (uint256, Phase, uint256) {
         SwanMarketParameters[] memory marketParams = swan.getMarketParameters();
 
         if (marketParams.length == marketParameterIdx + 1) {
-            // if our index is the last market parameter, we can simply treat it as a single instance,
+            //If our marketParameters have not been updated (lenth = idx + 1)
             // and compute the phase according to the elapsed time from the beginning of the contract.
             return _computePhase(marketParams[marketParameterIdx], block.timestamp - createdAt);
         } else {
@@ -344,6 +355,8 @@ contract BuyerAgent is Ownable {
             //
             // first iteration, we need to compute elapsed time from createdAt:
             //  createdAt -|- VVV | ... | ... | block.timestamp
+            
+            //e- We're checking how many rounds passed before our marketParams was first updated.
             (uint256 round,,) = _computePhase(marketParams[idx], marketParams[idx + 1].timestamp - createdAt);
             idx++;
             // start looking at all the intervals beginning from the respective market parameters index
@@ -356,7 +369,8 @@ contract BuyerAgent is Ownable {
                     _computePhase(marketParams[idx], marketParams[idx + 1].timestamp - marketParams[idx].timestamp);
 
                 // accumulate rounds from each intermediate phase, along with a single offset round
-                round += innerRound + 1;
+                round += innerRound + 1; //q- Why do we have a single offset round?
+                //a- One of the Known Issues, this is intended because every time we update market parameters it counts as a round update
 
                 idx++;
             }
@@ -377,8 +391,9 @@ contract BuyerAgent is Ownable {
     /// @dev Only callable by the owner.
     /// @dev Only callable in withdraw phase.
     /// @param _fee new feeRoyalty, must be between 1 and 100.
+
     function setFeeRoyalty(uint96 _fee) public onlyOwner {
-        _checkRoundPhase(Phase.Withdraw);
+        _checkRoundPhase(Phase.Withdraw); 
 
         if (_fee < 1 || _fee > 100) {
             revert InvalidFee(_fee);
@@ -391,6 +406,8 @@ contract BuyerAgent is Ownable {
     /// @dev Only callable in withdraw phase.
     /// @param _amountPerRound new amountPerRound.
     function setAmountPerRound(uint256 _amountPerRound) external onlyOwner {
+
+        //@audit-info- No Zero Check on amountPerRound, Impact - NONE
         _checkRoundPhase(Phase.Withdraw);
 
         amountPerRound = _amountPerRound;

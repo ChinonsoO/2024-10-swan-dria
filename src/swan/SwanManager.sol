@@ -13,6 +13,7 @@ import {SwanAssetFactory, SwanAsset} from "./SwanAsset.sol";
 /// TODO: use 256-bit tight-packing here
 struct SwanMarketParameters {
     /// @notice The interval at which the buyerAgent can withdraw the funds.
+    //q- Are these intervals enforced?
     uint256 withdrawInterval;
     /// @notice The interval at which the creators can mint assets.
     uint256 sellInterval;
@@ -24,7 +25,7 @@ struct SwanMarketParameters {
     uint256 maxAssetCount;
     /// @notice Timestamp of the block that this market parameter was added.
     /// @dev Even if this is provided by the user, it will get overwritten by the internal `block.timestamp`.
-    uint256 timestamp;
+    uint256 timestamp; //Set in this function Line 83
 }
 
 contract SwanManager is OwnableUpgradeable {
@@ -92,7 +93,8 @@ contract SwanManager is OwnableUpgradeable {
 
     /// @notice Returns the total fee required to make an oracle request.
     /// @dev This is mainly required by the buyer to calculate its minimum fund amount, so that it can pay the fee.
-    function getOracleFee() external view returns (uint256) {
+    function getOracleFee() external view returns (uint256) {\
+        //q- where is this getFee function?
         (uint256 totalFee,,) = coordinator.getFee(oracleParameters);
         return totalFee;
     }

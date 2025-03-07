@@ -15,6 +15,8 @@ contract SwanAssetFactory {
         return new SwanAsset(_name, _symbol, _description, _owner, msg.sender);
         //q- Why is _owner passed in but the operator has to be msg.sender, seems like it should be flipped. So we can make anyone
         //the owner of our swanAsset?
+
+        //a- When called through swan the owner of our SwanAssetFactory is the one who created the listing.
     }
 }
 
@@ -33,13 +35,16 @@ contract SwanAsset is ERC721, Ownable {
         address _owner,
         address _operator
     ) ERC721(_name, _symbol) Ownable(_owner) {
+        //no zero address check
         description = _description;
         createdAt = block.timestamp;
 
         // owner is minted the token immediately
+        //Is this working correctly?
         ERC721._mint(_owner, 1);
 
         // Swan (operator) is approved to by the owner immediately.
+        //operator is approved on all of owners tokens
         ERC721._setApprovalForAll(_owner, _operator, true);
     }
 }

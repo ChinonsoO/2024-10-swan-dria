@@ -127,9 +127,11 @@ contract Swan is SwanManager, UUPSUpgradeable {
         __Ownable_init(msg.sender);
 
         require(_marketParameters.platformFee <= 100, "Platform fee cannot exceed 100%");
+        //q- platform fee can be zero??
 
         // market & oracle parameters
-        marketParameters.push(_marketParameters);
+        //q- We're not  calling set MarketParameters here, our Swan can be initialized with bad timestamp
+        marketParameters.push(_marketParameters); 
         oracleParameters = _oracleParameters;
 
         // contracts
@@ -141,7 +143,7 @@ contract Swan is SwanManager, UUPSUpgradeable {
         // swan is an operator
         isOperator[address(this)] = true;
         // owner is an operator
-        isOperator[msg.sender] = true;
+        isOperator[msg.sender] = true; //hmmm we make ower and swan an operator hmmmmm
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -165,6 +167,8 @@ contract Swan is SwanManager, UUPSUpgradeable {
             revert BuyerAgent.InvalidPhase(phase, BuyerAgent.Phase.Sell);
         }
         // asset count must not exceed `maxAssetCount`
+
+        //q- This is implying the maxAssetCount is only for a particular round is this correct
         if (getCurrentMarketParameters().maxAssetCount == assetsPerBuyerRound[_buyer][round].length) {
             revert AssetLimitExceeded(getCurrentMarketParameters().maxAssetCount);
         }
@@ -257,7 +261,7 @@ contract Swan is SwanManager, UUPSUpgradeable {
     /// @notice Function to transfer the royalties to the seller & Dria.
     function transferRoyalties(AssetListing storage asset) internal {
         // calculate fees
-        uint256 buyerFee = (asset.price * asset.royaltyFee) / 100;
+        uint256 buyerFee = (asset.price * asset.royaltyFee) / 100; //q- Some precision loss?
         uint256 driaFee = (buyerFee * getCurrentMarketParameters().platformFee) / 100;
 
         // first, Swan receives the entire fee from seller
@@ -281,7 +285,7 @@ contract Swan is SwanManager, UUPSUpgradeable {
             revert InvalidStatus(listing.status, AssetStatus.Listed);
         }
 
-        // can only the buyer can purchase the asset
+        // can only the buyer can purchase the asset //q- wait what?? Only the buyer can purchase an asset?
         if (listing.buyer != msg.sender) {
             revert Unauthorized(msg.sender);
         }
@@ -296,7 +300,8 @@ contract Swan is SwanManager, UUPSUpgradeable {
 
         // transfer money
         token.transferFrom(listing.buyer, address(this), listing.price);
-        token.transfer(listing.seller, listing.price);
+        token.transfer(listing.seller, listing.price); //q- In the case potential reentrancy so I as a seller know that the buyeragent,
+        //bought my asset and may be going on to buy other assets what can I do to exploit this?
 
         emit AssetSold(listing.seller, msg.sender, _asset, listing.price);
     }
