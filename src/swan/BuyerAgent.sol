@@ -200,7 +200,7 @@ contract BuyerAgent is Ownable {
     /// @notice Function to update the Buyer state.
     /// @dev Works only in `Withdraw` phase.
     /// @dev Can be called multiple times within a single round, although is not expected to be done so.
-    /// @good
+    //@good
     function updateState() external onlyAuthorized {
         // check that we are in the Withdraw phase, and return round
         (uint256 round,) = _checkRoundPhase(Phase.Withdraw);

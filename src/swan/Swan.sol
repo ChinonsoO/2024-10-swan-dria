@@ -198,6 +198,8 @@ contract Swan is SwanManager, UUPSUpgradeable {
     /// @param  _asset address of the asset.
     /// @param  _buyer new buyerAgent for the asset.
     /// @param  _price new price of the token.
+
+    //q- Can we pass in a poisoned asset address here?
     function relist(address _asset, address _buyer, uint256 _price) external {
         AssetListing storage asset = listings[_asset];
 
@@ -207,6 +209,8 @@ contract Swan is SwanManager, UUPSUpgradeable {
         }
 
         // asset must be listed
+
+        //q- We don't check if the asset is sold 
         if (asset.status != AssetStatus.Listed) {
             revert InvalidStatus(asset.status, AssetStatus.Listed);
         }
@@ -244,7 +248,7 @@ contract Swan is SwanManager, UUPSUpgradeable {
             royaltyFee: buyer.royaltyFee(),
             price: _price,
             seller: msg.sender,
-            status: AssetStatus.Listed,
+            status: AssetStatus.Listed, //@audit- A SOLD ASSET IS NOW MARKED AS LISTED
             buyer: _buyer,
             round: round
         });

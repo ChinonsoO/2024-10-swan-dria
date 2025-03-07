@@ -93,7 +93,7 @@ contract SwanManager is OwnableUpgradeable {
 
     /// @notice Returns the total fee required to make an oracle request.
     /// @dev This is mainly required by the buyer to calculate its minimum fund amount, so that it can pay the fee.
-    function getOracleFee() external view returns (uint256) {\
+    function getOracleFee() external view returns (uint256) {
         //q- where is this getFee function?
         (uint256 totalFee,,) = coordinator.getFee(oracleParameters);
         return totalFee;
