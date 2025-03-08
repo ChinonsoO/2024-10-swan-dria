@@ -15,6 +15,8 @@ import {SwanManager, SwanMarketParameters} from "./SwanManager.sol";
 bytes32 constant SwanBuyerPurchaseOracleProtocol = "swan-buyer-purchase/0.1.0";
 bytes32 constant SwanBuyerStateOracleProtocol = "swan-buyer-state/0.1.0";
 
+//@audit lack of unlist function
+
 contract Swan is SwanManager, UUPSUpgradeable {
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
@@ -157,9 +159,11 @@ contract Swan is SwanManager, UUPSUpgradeable {
     /// @param _desc description of the token.
     /// @param _price price of the token.
     /// @param _buyer address of the buyer.
+    //@audit- WHats stopping us from listing spammin a buyer will with assets
     function list(string calldata _name, string calldata _symbol, bytes calldata _desc, uint256 _price, address _buyer)
         external
     {
+        //@audit- no validation buyer is an actual buyer 
         BuyerAgent buyer = BuyerAgent(_buyer);
         (uint256 round, BuyerAgent.Phase phase,) = buyer.getRoundPhase();
 
@@ -314,6 +318,9 @@ contract Swan is SwanManager, UUPSUpgradeable {
     /// @dev Active: If the asset has not been purchased or the next round has not started.
     /// @dev Inactive: If the assets's purchaseRound has passed or delisted by the creator of the asset.
     /// @dev Sold: If the asset has already been purchased by the buyer.
+
+    //@audit-low missing function to get asset status 
+
     function getListingPrice(address _asset) external view returns (uint256) {
         return listings[_asset].price;
     }

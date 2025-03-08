@@ -1,28 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.20;
 
-
 import {Test, console} from "forge-std/Test.sol";
-import {SwanManager} from "../../src/swan/SwanManager.sol";
-import {SwanAsset} from "../../src/swan/SwanAsset.sol";
+import {SwanManager, SwanMarketParameters} from "../../src/swan/SwanManager.sol";
+import {SwanAsset, SwanAssetFactory} from "../../src/swan/SwanAsset.sol";
 import {Swan} from "../../src/swan/Swan.sol";
-import { ERC20Mock } from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
-import {SwanAssetFactory} from "../../src/swan/SwanAsset.sol";
-import {BuyerAgent} from "../../src/swan/BuyerAgent.sol";
-import {BuyerAgentFactory} from "../../src/swan/BuyerAgent.sol";
-import {SwanMarketParameters} from "../../src/swan/SwanManager.sol";
+import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
+import {BuyerAgent, BuyerAgentFactory} from "../../src/swan/BuyerAgent.sol";
 import {LLMOracleTaskParameters} from "../../src/llm/LLMOracleTask.sol";
 import {LLMOracleCoordinator} from "../../src/llm/LLMOracleCoordinator.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-
-
 
 contract SwanTestFoundry is Test {
     Swan public swan;
     SwanAsset public swanAsset;
     SwanAssetFactory public swanAssetFactory;
     BuyerAgentFactory public buyerAgentFactory;
-
     ERC20Mock public token;
 
     address owner = makeAddr("owner");
@@ -34,7 +27,6 @@ contract SwanTestFoundry is Test {
 
     SwanMarketParameters MARKET_PARAMETERS;
     LLMOracleTaskParameters ORACLE_PARAMETERS;
-
 
     function setUp() public {
         MARKET_PARAMETERS = SwanMarketParameters({
@@ -66,17 +58,14 @@ contract SwanTestFoundry is Test {
         );
         ERC1967Proxy proxy = new ERC1967Proxy(address(swanImplementation), initData);
         swan = Swan(address(proxy));
-
     }
 
     function testCannotRelistSoldListing() public {
-
-        // Deploy a buyer agent (buyerAgent will be used as the listing’s buyer)
+        // Deploy a buyer agent for the listing.
         vm.prank(address(swan));
         BuyerAgent buyerAgent = buyerAgentFactory.deploy("TestBuyer", "desc", 10, 1000, buyerOwner);
 
-        // Mint tokens for seller and buyerAgent so that transfers work:
-        // (Assumes ERC20Mock has a mint function)
+        // Mint tokens for seller and buyerAgent so that transfers work.
         token.mint(seller, 1000);
         token.mint(address(buyerAgent), 1000);
 
@@ -85,12 +74,10 @@ contract SwanTestFoundry is Test {
         token.approve(address(swan), 1000);
 
         // Seller lists an asset.
-        // The list function checks that the buyer agent is in Sell phase.
         vm.prank(seller);
         swan.list("Asset", "AST", bytes("desc"), 100, address(buyerAgent));
 
-        // Retrieve the asset address from the listing mapping.
-        // Here we assume the asset was listed in round 0.
+        // Retrieve the asset address from the listing mapping (round 0).
         address[] memory assets = swan.getListedAssets(address(buyerAgent), 0);
         require(assets.length > 0, "No assets listed");
         address assetAddress = assets[0];
@@ -100,18 +87,45 @@ contract SwanTestFoundry is Test {
         vm.prank(seller);
         asset.setApprovalForAll(address(swan), true);
 
-        // Buyer agent (the designated buyer) purchases the asset.
-        // The purchase call will update the listing's status to Sold.
+        // Buyer agent purchases the asset, updating its status to Sold.
         vm.prank(address(buyerAgent));
         swan.purchase(assetAddress);
 
         // Now that the asset is sold, attempting to relist it should revert.
-        // The relist function requires the listing status to be Listed.
         vm.prank(seller);
         vm.expectRevert();
         swan.relist(assetAddress, address(buyerAgent), 150);
+    }
+
+    function testArbitraryBuyerAddressCanBePassedToList() public {
+        // Deploy a FakeBuyer that satisfies the minimal buyer interface.
+        FakeBuyer fakeBuyer = new FakeBuyer();
+
+        // Mint tokens for seller and approve the Swan contract.
+        token.mint(seller, 1000);
+        vm.prank(seller);
+        token.approve(address(swan), 1000);
+
+        // Seller lists an asset using the FakeBuyer address.
+        vm.prank(seller);
+        swan.list("FakeAsset", "FA", bytes("fake asset description"), 100, address(fakeBuyer));
+
+        // Retrieve the list of assets associated with FakeBuyer for round 0.
+        address[] memory assets = swan.getListedAssets(address(fakeBuyer), 0);
+
+        assertGt(assets.length, 0, "No assets were listed for FakeBuyer");
+    }
 }
 
+// A minimal FakeBuyer contract to test that any address implementing the minimal interface can be used.
+contract FakeBuyer {
+    // Returns a dummy round (0), the required Sell phase, and a dummy time remaining.
+    function getRoundPhase() external pure returns (uint256, BuyerAgent.Phase, uint256) {
+        return (0, BuyerAgent.Phase.Sell, 100);
+    }
 
-
+    // Returns a fixed royalty fee.
+    function royaltyFee() external pure returns (uint96) {
+        return 10;
+    }
 }
